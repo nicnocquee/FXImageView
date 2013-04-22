@@ -65,8 +65,6 @@
         cell = [[ImageViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:CellIdentifier];
     }
     [cell setImageURL:[self.images objectAtIndex:indexPath.row] placeholderImage:nil];
-    [cell setCellText:[NSString stringWithFormat:@"%d. %@", indexPath.row, [self.images objectAtIndex:indexPath.row]]];
-    
     return cell;
 }
 
@@ -81,7 +79,7 @@
         int urls_grabbed = 0;
         for (int i = 0; i < 8; i++) {
             if (urls_grabbed < MAX_IMAGES) {
-                NSURL *jsonURL = [NSURL URLWithString:[NSString stringWithFormat:@"https://ajax.googleapis.com/ajax/services/search/images?v=1.0&q=cute+kitten&rsz=8&start=%d", i * 8]];
+                NSURL *jsonURL = [NSURL URLWithString:[NSString stringWithFormat:@"https://ajax.googleapis.com/ajax/services/search/images?v=1.0&q=saori+hara&rsz=8&start=%d", i * 8]];
                 NSData *jsonData = [NSData dataWithContentsOfURL:jsonURL];
                 
                 id json = [NSJSONSerialization JSONObjectWithData:jsonData options:NSJSONReadingMutableLeaves error:nil];

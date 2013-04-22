@@ -49,6 +49,7 @@
 @property (nonatomic, strong) UIImage *originalImage;
 @property (nonatomic, strong) UIImageView *imageView;
 @property (nonatomic, strong) NSURL *imageContentURL;
+@property (nonatomic, strong) AFImageRequestOperation *imageRequestOperation;
 
 - (void)processImage;
 
@@ -429,11 +430,17 @@
 
 - (void)queueImageForProcessing
 {
+    UIImage *processedImage = [self cachedProcessedImage];
+    if (processedImage) {
+        [self setProcessedImageOnMainThread:@[processedImage?:[NSNull null], [self cacheKey]]];
+        return;
+    }
+    [self cancelImageRequestOperation];
     __weak FXImageView *weakSelf = self;
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self.imageContentURL];
     [request addValue:@"image/*" forHTTPHeaderField:@"Accept"];
-    AFImageRequestOperation *imageRequestOperation = [[AFImageRequestOperation alloc] initWithRequest:request];
-    [imageRequestOperation setDownloadProgressBlock:^(NSUInteger bytesRead, long long totalBytesRead, long long totalBytesExpectedToRead) {
+    AFImageRequestOperation *imageOperation = [[AFImageRequestOperation alloc] initWithRequest:request];
+    [imageOperation setDownloadProgressBlock:^(NSUInteger bytesRead, long long totalBytesRead, long long totalBytesExpectedToRead) {
         __strong FXImageView *strongSelf = weakSelf;
         if (strongSelf.imageContentURL == request.URL) {
             [strongSelf.progressView setHidden:NO];
@@ -445,13 +452,17 @@
             [strongSelf.progressView setHidden:YES];
         }
     }];
-    [imageRequestOperation setCompletionBlockWithSuccess:^(AFHTTPRequestOperation *operation, id responseObject) {
+    [imageOperation setCompletionBlockWithSuccess:^(AFHTTPRequestOperation *operation, id responseObject) {
+        if (!responseObject) {
+            NSLog(@"No image");
+        }
         __strong FXImageView *strongSelf = weakSelf;
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
             strongSelf.originalImage = responseObject;
             [strongSelf processImage];
         });
     } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
+        NSLog(@"Failure: No image");
         __strong FXImageView *strongSelf = weakSelf;
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
             strongSelf.originalImage = nil;
@@ -464,7 +475,13 @@
         [self.indicatorView setHidden:NO];
     }
     
-    [[[self class] processingQueue] addOperation:imageRequestOperation];    
+    self.imageRequestOperation = imageOperation;
+    [[[self class] processingQueue] addOperation:imageOperation];
+}
+
+- (void)cancelImageRequestOperation {
+    [self.imageRequestOperation cancel];
+    self.imageRequestOperation = nil;
 }
 
 - (void)updateProcessedImage
@@ -498,7 +515,7 @@
     _imageView.frame = self.bounds;
     if (_imageContentURL || self.image)
     {
-        [self updateProcessedImage];
+       // [self updateProcessedImage];
     }
     
     if (!self.indicatorView.hidden) {
