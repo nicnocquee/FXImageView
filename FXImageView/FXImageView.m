@@ -34,6 +34,8 @@
 #import "UIImage+FX.h"
 #import <objc/message.h>
 
+#import "AFImageRequestOperation.h"
+
 
 @interface FXImageOperation : NSOperation
 
@@ -283,7 +285,6 @@
     NSString *cacheKey = [self cacheKey];
     UIImage *image = _originalImage;
     UIImage *placeholder = _placeholderImage;
-    NSURL *imageURL = _imageContentURL;
     CGSize size = self.bounds.size;
     CGFloat reflectionGap = _reflectionGap;
     CGFloat reflectionScale = _reflectionScale;
@@ -318,30 +319,6 @@
             [self performSelectorOnMainThread:@selector(showPlaceholderImage)
                                    withObject:nil
                                 waitUntilDone:YES];
-        }
-        
-        
-        //load image
-        if (imageURL)
-        {
-            NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:imageURL cachePolicy:NSURLRequestReturnCacheDataElseLoad timeoutInterval:30.0];
-            [request addValue:@"image/*" forHTTPHeaderField:@"Accept"];
-            NSError *error = nil;
-            NSURLResponse *response = nil;
-            NSData *data = [NSURLConnection sendSynchronousRequest:request returningResponse:&response error:&error];
-            if (error)
-            {
-                NSLog(@"Error loading image for URL: %@, %@", imageURL, error);
-                return;
-            }
-            else
-            {
-                image = [UIImage imageWithData:data];
-                if ([[[imageURL path] stringByDeletingPathExtension] hasSuffix:@"@2x"])
-                {
-                    image = [UIImage imageWithCGImage:image.CGImage scale:2.0f orientation:image.imageOrientation];
-                }
-            }
         }
         
         if (image)
@@ -388,13 +365,7 @@
     //cache and set image
     if ([[NSThread currentThread] isMainThread])
     {
-        if (processedImage)
-        {
-            [self cacheProcessedImage:processedImage forKey:cacheKey];
-        }
-        [self willChangeValueForKey:@"processedImage"];
-        _imageView.image = processedImage;
-        [self didChangeValueForKey:@"processedImage"];
+        [self setProcessedImageOnMainThread:@[processedImage?:[NSNull null], cacheKey]];
     }
     else
     {
@@ -449,21 +420,22 @@
 - (void)queueImageForProcessing
 {
     //create processing operation
-    FXImageOperation *operation = [[FXImageOperation alloc] init];
-    operation.target = self;
-    
-    //set operation thread priority
-    [operation setThreadPriority:1.0];
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self.imageContentURL];
+    [request addValue:@"image/*" forHTTPHeaderField:@"Accept"];
+    AFImageRequestOperation *imageRequestOperation = [[AFImageRequestOperation alloc] initWithRequest:request];
+    [imageRequestOperation setDownloadProgressBlock:^(NSUInteger bytesRead, long long totalBytesRead, long long totalBytesExpectedToRead) {
+        
+    }];
+    [imageRequestOperation setCompletionBlockWithSuccess:^(AFHTTPRequestOperation *operation, id responseObject) {
+        self.originalImage = responseObject;
+        [self processImage];
+    } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
+        self.originalImage = nil;
+        [self processImage];
+    }];
     
     //queue operation
-    [self queueProcessingOperation:operation];
-    
-#if !__has_feature(objc_arc)
-    
-    [operation release];
-    
-#endif
-    
+    [[[self class] processingQueue] addOperation:imageRequestOperation];    
 }
 
 - (void)updateProcessedImage
@@ -666,6 +638,7 @@
     {
         //update processed image
         self.placeholderImage = placeholderImage;
+        [self showPlaceholderImage];
         [self willChangeValueForKey:@"image"];
         self.originalImage = nil;
         [self didChangeValueForKey:@"image"];
