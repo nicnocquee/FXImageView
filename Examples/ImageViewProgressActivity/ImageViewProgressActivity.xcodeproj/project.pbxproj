@@ -18,8 +18,8 @@
 		03277209172511F9007A85D4 /* Default-568h@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 03277208172511F9007A85D4 /* Default-568h@2x.png */; };
 		0327721A17251304007A85D4 /* FXImageView.m in Sources */ = {isa = PBXBuildFile; fileRef = 0327721717251304007A85D4 /* FXImageView.m */; };
 		0327721B17251304007A85D4 /* UIImage+FX.m in Sources */ = {isa = PBXBuildFile; fileRef = 0327721917251304007A85D4 /* UIImage+FX.m */; };
-		0327721E17251335007A85D4 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 0327721D17251335007A85D4 /* ViewController.m */; };
 		032772211725158E007A85D4 /* ImageViewCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 032772201725158E007A85D4 /* ImageViewCell.m */; };
+		032772241725191E007A85D4 /* MyViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 032772231725191E007A85D4 /* MyViewController.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,10 +40,10 @@
 		0327721717251304007A85D4 /* FXImageView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = FXImageView.m; sourceTree = "<group>"; };
 		0327721817251304007A85D4 /* UIImage+FX.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "UIImage+FX.h"; sourceTree = "<group>"; };
 		0327721917251304007A85D4 /* UIImage+FX.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "UIImage+FX.m"; sourceTree = "<group>"; };
-		0327721C17251335007A85D4 /* ViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ViewController.h; sourceTree = "<group>"; };
-		0327721D17251335007A85D4 /* ViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ViewController.m; sourceTree = "<group>"; };
 		0327721F1725158E007A85D4 /* ImageViewCell.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ImageViewCell.h; sourceTree = "<group>"; };
 		032772201725158E007A85D4 /* ImageViewCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ImageViewCell.m; sourceTree = "<group>"; };
+		032772221725191E007A85D4 /* MyViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MyViewController.h; sourceTree = "<group>"; };
+		032772231725191E007A85D4 /* MyViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MyViewController.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -94,10 +94,10 @@
 				03277201172511F9007A85D4 /* AppDelegate.h */,
 				03277202172511F9007A85D4 /* AppDelegate.m */,
 				032771F9172511F9007A85D4 /* Supporting Files */,
-				0327721C17251335007A85D4 /* ViewController.h */,
-				0327721D17251335007A85D4 /* ViewController.m */,
 				0327721F1725158E007A85D4 /* ImageViewCell.h */,
 				032772201725158E007A85D4 /* ImageViewCell.m */,
+				032772221725191E007A85D4 /* MyViewController.h */,
+				032772231725191E007A85D4 /* MyViewController.m */,
 			);
 			path = ImageViewProgressActivity;
 			sourceTree = "<group>";
@@ -197,8 +197,8 @@
 				03277203172511F9007A85D4 /* AppDelegate.m in Sources */,
 				0327721A17251304007A85D4 /* FXImageView.m in Sources */,
 				0327721B17251304007A85D4 /* UIImage+FX.m in Sources */,
-				0327721E17251335007A85D4 /* ViewController.m in Sources */,
 				032772211725158E007A85D4 /* ImageViewCell.m in Sources */,
+				032772241725191E007A85D4 /* MyViewController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

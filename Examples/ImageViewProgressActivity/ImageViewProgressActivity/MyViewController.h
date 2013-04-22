@@ -1,5 +1,5 @@
 //
-//  ViewController.h
+//  MyViewController.h
 //  ImageViewProgressActivity
 //
 //  Created by Nico Prananta on 4/22/13.
@@ -8,6 +8,6 @@
 
 #import <UIKit/UIKit.h>
 
-@interface ViewController : UITableViewController
+@interface MyViewController : UITableViewController
 
 @end

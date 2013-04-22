@@ -6,17 +6,17 @@
 //  Copyright (c) 2013 Touches. All rights reserved.
 //
 
-#import "ViewController.h"
+#import "MyViewController.h"
 
 #import "ImageViewCell.h"
 
-@interface ViewController ()
+@interface MyViewController ()
 
 @property (nonatomic, strong) NSArray *images;
 
 @end
 
-@implementation ViewController
+@implementation MyViewController
 
 - (id)initWithStyle:(UITableViewStyle)style
 {
@@ -30,7 +30,7 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-
+    
     [self.tableView setRowHeight:310];
     [self.tableView setSeparatorStyle:UITableViewCellSeparatorStyleNone];
 }
