@@ -49,6 +49,11 @@
 @property (nonatomic, strong) UIImage *processedImage;
 @property (nonatomic, strong) UIImage *placeholderImage;
 
+@property (nonatomic, strong) UIProgressView *progressView;
+@property (nonatomic, strong) UIActivityIndicatorView *indicatorView;
+
+@property (nonatomic, assign) BOOL shouldHideIndicatorView;
+
 @property (nonatomic, copy) UIImage *(^customEffectsBlock)(UIImage *image);
 @property (nonatomic, copy) NSString *cacheKey;
 

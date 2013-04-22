@@ -15,5 +15,6 @@
 @property (nonatomic, strong) FXImageView *fxImageView;
 
 - (void)setImageURL:(NSURL *)imageURL placeholderImage:(UIImage *)placeholderImage;
+- (void)setCellText:(NSString *)text;
 
 @end

@@ -65,6 +65,7 @@
         cell = [[ImageViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:CellIdentifier];
     }
     [cell setImageURL:[self.images objectAtIndex:indexPath.row] placeholderImage:nil];
+    [cell setCellText:[NSString stringWithFormat:@"%d. %@", indexPath.row, [self.images objectAtIndex:indexPath.row]]];
     
     return cell;
 }

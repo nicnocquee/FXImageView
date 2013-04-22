@@ -104,21 +104,21 @@
 + (NSOperationQueue *)processingQueue
 {
     static NSOperationQueue *sharedQueue = nil;
-    if (sharedQueue == nil)
-    {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
         sharedQueue = [[NSOperationQueue alloc] init];
         [sharedQueue setMaxConcurrentOperationCount:4];
-    }
+    });
     return sharedQueue;
 }
 
 + (NSCache *)processedImageCache
 {
     static NSCache *sharedCache = nil;
-    if (sharedCache == nil)
-    {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
         sharedCache = [[NSCache alloc] init];
-    }
+    });
     return sharedCache;
 }
 
@@ -129,12 +129,19 @@
 - (void)setUp
 {
     self.shadowColor = [UIColor blackColor];
-    self.contentMode = UIViewContentModeScaleAspectFit;
+    self.contentMode = UIViewContentModeScaleAspectFill;
     _imageView = [[UIImageView alloc] initWithFrame:self.bounds];
     _imageView.contentMode = self.contentMode;
     [self addSubview:_imageView];
     [self setImage:super.image];
     super.image = nil;
+    
+    _progressView = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleBar];
+    _indicatorView = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray];
+    [_indicatorView setHidesWhenStopped:YES];
+    [_indicatorView setHidden:YES];
+    [self addSubview:_progressView];
+    [self addSubview:_indicatorView];
 }
 
 - (id)initWithFrame:(CGRect)frame
@@ -277,6 +284,9 @@
         _imageView.image = processedImage;
         [self didChangeValueForKey:@"processedImage"];
     }
+    
+    [self.progressView setHidden:YES];
+    [self.indicatorView stopAnimating];
 }
 
 - (void)processImage
@@ -419,22 +429,41 @@
 
 - (void)queueImageForProcessing
 {
-    //create processing operation
+    __weak FXImageView *weakSelf = self;
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self.imageContentURL];
     [request addValue:@"image/*" forHTTPHeaderField:@"Accept"];
     AFImageRequestOperation *imageRequestOperation = [[AFImageRequestOperation alloc] initWithRequest:request];
     [imageRequestOperation setDownloadProgressBlock:^(NSUInteger bytesRead, long long totalBytesRead, long long totalBytesExpectedToRead) {
-        
+        __strong FXImageView *strongSelf = weakSelf;
+        if (strongSelf.imageContentURL == request.URL) {
+            [strongSelf.progressView setHidden:NO];
+            [strongSelf.progressView setProgress:totalBytesRead/totalBytesExpectedToRead animated:NO];
+            if (totalBytesRead == totalBytesExpectedToRead) {
+                [strongSelf.progressView setHidden:YES];
+            }
+        } else {
+            [strongSelf.progressView setHidden:YES];
+        }
     }];
     [imageRequestOperation setCompletionBlockWithSuccess:^(AFHTTPRequestOperation *operation, id responseObject) {
-        self.originalImage = responseObject;
-        [self processImage];
+        __strong FXImageView *strongSelf = weakSelf;
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            strongSelf.originalImage = responseObject;
+            [strongSelf processImage];
+        });
     } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
-        self.originalImage = nil;
-        [self processImage];
+        __strong FXImageView *strongSelf = weakSelf;
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            strongSelf.originalImage = nil;
+            [strongSelf processImage];
+        });
     }];
     
-    //queue operation
+    if (!self.shouldHideIndicatorView) {
+        [self.indicatorView startAnimating];
+        [self.indicatorView setHidden:NO];
+    }
+    
     [[[self class] processingQueue] addOperation:imageRequestOperation];    
 }
 
@@ -471,6 +500,22 @@
     {
         [self updateProcessedImage];
     }
+    
+    if (!self.indicatorView.hidden) {
+        [self.indicatorView setCenter:CGPointMake(CGRectGetWidth(self.imageView.frame)/2, CGRectGetHeight(self.imageView.frame)/2 - CGRectGetHeight(self.indicatorView.frame)/2 - 5)];
+    }
+    
+    if (!self.progressView.hidden) {
+        CGRect frame = self.progressView.frame;
+        frame.size.width = 0.8 * CGRectGetWidth(self.imageView.frame);
+        self.progressView.frame = frame;
+        if (self.indicatorView.hidden) {
+            [self.progressView setCenter:CGPointMake(CGRectGetWidth(self.imageView.frame)/2, CGRectGetHeight(self.imageView.frame)/2)];
+        } else {
+            [self.progressView setCenter:CGPointMake(CGRectGetWidth(self.imageView.frame)/2, CGRectGetHeight(self.imageView.frame)/2 + CGRectGetHeight(self.progressView.frame)/2 + 5 )];
+        }
+    }
+    
 }
 
 - (void)showPlaceholderImage {
@@ -480,6 +525,22 @@
 
 #pragma mark -
 #pragma mark Setters and getters
+
+- (void)setProgressView:(UIProgressView *)progressView {
+    if (_progressView != progressView) {
+        [_progressView removeFromSuperview];
+        _progressView = progressView;
+        [self addSubview:_progressView];
+    }
+}
+
+- (void)setIndicatorView:(UIActivityIndicatorView *)indicatorView {
+    if (_indicatorView != indicatorView) {
+        [_indicatorView removeFromSuperview];
+        _indicatorView = indicatorView;
+        [self addSubview:_indicatorView];
+    }
+}
 
 - (UIImage *)processedImage
 {
