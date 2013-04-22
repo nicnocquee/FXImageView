@@ -47,11 +47,14 @@
 @property (nonatomic, assign) CGFloat shadowBlur;
 @property (nonatomic, assign) CGFloat cornerRadius;
 @property (nonatomic, strong) UIImage *processedImage;
+@property (nonatomic, strong) UIImage *placeholderImage;
 
 @property (nonatomic, copy) UIImage *(^customEffectsBlock)(UIImage *image);
 @property (nonatomic, copy) NSString *cacheKey;
 
 - (void)setImageWithContentsOfFile:(NSString *)file;
 - (void)setImageWithContentsOfURL:(NSURL *)URL;
+
+- (void)setImageWithContentsOfURL:(NSURL *)URL placeholderImage:(UIImage *)placeholderImage;
 
 @end

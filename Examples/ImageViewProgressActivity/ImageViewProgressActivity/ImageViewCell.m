@@ -18,7 +18,7 @@
     if (self) {
         _fxImageView = [[FXImageView alloc] initWithFrame:CGRectInset(self.contentView.bounds, 10, 10)];
         [_fxImageView setAutoresizingMask:UIViewAutoresizingFlexibleHeight|UIViewAutoresizingFlexibleWidth];
-        [_fxImageView setBackgroundColor:[UIColor lightGrayColor]];
+        [_fxImageView setAsynchronous:YES];
         [self.contentView addSubview:_fxImageView];
     }
     return self;
@@ -31,8 +31,8 @@
     // Configure the view for the selected state
 }
 
-- (void)setImageURL:(NSURL *)imageURL {
-    [self.fxImageView setImageWithContentsOfURL:imageURL];
+- (void)setImageURL:(NSURL *)imageURL placeholderImage:(UIImage *)placeholderImage{
+    [self.fxImageView setImageWithContentsOfURL:imageURL placeholderImage:placeholderImage];
 }
 
 @end

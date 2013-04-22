@@ -14,6 +14,6 @@
 
 @property (nonatomic, strong) FXImageView *fxImageView;
 
-- (void)setImageURL:(NSURL *)imageURL;
+- (void)setImageURL:(NSURL *)imageURL placeholderImage:(UIImage *)placeholderImage;
 
 @end

@@ -127,8 +127,9 @@
 - (void)setUp
 {
     self.shadowColor = [UIColor blackColor];
+    self.contentMode = UIViewContentModeScaleAspectFit;
     _imageView = [[UIImageView alloc] initWithFrame:self.bounds];
-    _imageView.contentMode = UIViewContentModeCenter;
+    _imageView.contentMode = self.contentMode;
     [self addSubview:_imageView];
     [self setImage:super.image];
     super.image = nil;
@@ -281,6 +282,7 @@
     //get properties
     NSString *cacheKey = [self cacheKey];
     UIImage *image = _originalImage;
+    UIImage *placeholder = _placeholderImage;
     NSURL *imageURL = _imageContentURL;
     CGSize size = self.bounds.size;
     CGFloat reflectionGap = _reflectionGap;
@@ -306,10 +308,24 @@
     UIImage *processedImage = [self cachedProcessedImage];
     if (!processedImage)
     {
+        // set placeholder
+        if ([[NSThread currentThread] isMainThread])
+        {
+            [self showPlaceholderImage];
+        }
+        else
+        {
+            [self performSelectorOnMainThread:@selector(showPlaceholderImage)
+                                   withObject:nil
+                                waitUntilDone:YES];
+        }
+        
+        
         //load image
         if (imageURL)
         {
-            NSURLRequest *request = [NSURLRequest requestWithURL:imageURL cachePolicy:NSURLRequestReturnCacheDataElseLoad timeoutInterval:30.0];
+            NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:imageURL cachePolicy:NSURLRequestReturnCacheDataElseLoad timeoutInterval:30.0];
+            [request addValue:@"image/*" forHTTPHeaderField:@"Accept"];
             NSError *error = nil;
             NSURLResponse *response = nil;
             NSData *data = [NSURLConnection sendSynchronousRequest:request returningResponse:&response error:&error];
@@ -364,6 +380,8 @@
                                                                           gap:reflectionGap
                                                                         alpha:reflectionAlpha];
             }
+        } else {
+            processedImage = placeholder;
         }
     }
     
@@ -481,6 +499,10 @@
     {
         [self updateProcessedImage];
     }
+}
+
+- (void)showPlaceholderImage {
+    self.imageView.image = self.placeholderImage;
 }
 
 
@@ -636,9 +658,14 @@
 
 - (void)setImageWithContentsOfURL:(NSURL *)URL
 {
+    [self setImageWithContentsOfURL:URL placeholderImage:nil];
+}
+
+- (void)setImageWithContentsOfURL:(NSURL *)URL placeholderImage:(UIImage *)placeholderImage {
     if (![URL isEqual:_imageContentURL])
     {
         //update processed image
+        self.placeholderImage = placeholderImage;
         [self willChangeValueForKey:@"image"];
         self.originalImage = nil;
         [self didChangeValueForKey:@"image"];
