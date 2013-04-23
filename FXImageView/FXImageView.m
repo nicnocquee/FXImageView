@@ -491,7 +491,7 @@
         if ([operation.request.URL.absoluteString isEqualToString:self.imageContentURL.absoluteString]) {
             __strong FXImageView *strongSelf = weakSelf;
             dispatch_async(dispatch_get_main_queue(), ^{
-                [strongSelf.messageLabel setText:NSLocalizedString(@"Error downloading image", nil)];
+                [strongSelf.messageLabel setText:NSLocalizedString(@"Image cannot be downloaded", nil)];
                 [strongSelf.messageLabel setHidden:NO];
             });
             
@@ -718,7 +718,6 @@
         [self.messageLabel setText:nil];
         [self.messageLabel setHidden:YES];
         [self.progressView setHidden:YES];
-        [self.indicatorView stopAnimating];
         [self setNeedsLayout];
         
         //update processed image
