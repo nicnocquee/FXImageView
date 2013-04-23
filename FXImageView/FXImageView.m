@@ -257,7 +257,11 @@
 
 - (UIImage *)cachedProcessedImage
 {
-    return [[[self class] processedImageCache] objectForKey:[self cacheKey]];
+    return [self cachedProcessImageForKey:[self cacheKey]];
+}
+
+- (UIImage *)cachedProcessImageForKey:(NSString *)key {
+    return [[[self class] processedImageCache] objectForKey:key];
 }
 
 #pragma mark -
@@ -265,47 +269,47 @@
 
 - (void)setProcessedImageOnMainThread:(NSArray *)array
 {
-    //get images
-    NSString *url = [array objectAtIndex:2];
-    url = ([url isKindOfClass:[NSNull class]])? nil:url;
-    NSString *cacheKey = [array objectAtIndex:1];
-    UIImage *processedImage = [array objectAtIndex:0];
-    processedImage = ([processedImage isKindOfClass:[NSNull class]])? nil: processedImage;
-    
-    if (processedImage)
-    {
-        //cache image
-        [self cacheProcessedImage:processedImage forKey:cacheKey];
-    }
-    
-    //set image
-    if ([[self cacheKey] isEqualToString:cacheKey] && [url isEqualToString:self.imageContentURL.absoluteString])
-    {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        //get images
+        NSString *url = [array objectAtIndex:2];
+        url = ([url isKindOfClass:[NSNull class]])? nil:url;
+        NSString *cacheKey = [array objectAtIndex:1];
+        UIImage *processedImage = [array objectAtIndex:0];
+        processedImage = ([processedImage isKindOfClass:[NSNull class]])? nil: processedImage;
         
-        //implement crossfade transition without needing to import QuartzCore
-        id animation = objc_msgSend(NSClassFromString(@"CATransition"), @selector(animation));
-        objc_msgSend(animation, @selector(setType:), @"kCATransitionFade");
-        objc_msgSend(self.layer, @selector(addAnimation:forKey:), animation, nil);
-
-        //set processed image
-        [self willChangeValueForKey:@"processedImage"];
-        _imageView.image = processedImage;
-        [self didChangeValueForKey:@"processedImage"];
-        
-        if (processedImage) {
-            [self.messageLabel setHidden:YES];
+        if (processedImage)
+        {
+            //cache image
+            [self cacheProcessedImage:processedImage forKey:cacheKey];
         }
-        [self.progressView setHidden:YES];
-        [self.indicatorView stopAnimating];
-    }
-    
-    
-    
+        
+        //set image
+        if ([[self cacheKey] isEqualToString:cacheKey] && [url isEqualToString:self.imageContentURL.absoluteString])
+        {
+            //implement crossfade transition without needing to import QuartzCore
+            id animation = objc_msgSend(NSClassFromString(@"CATransition"), @selector(animation));
+            objc_msgSend(animation, @selector(setType:), @"kCATransitionFade");
+            objc_msgSend(self.layer, @selector(addAnimation:forKey:), animation, nil);
+            
+            //set processed image
+            [self willChangeValueForKey:@"processedImage"];
+            _imageView.image = processedImage;
+            [self didChangeValueForKey:@"processedImage"];
+            
+            if (processedImage) {
+                [self.messageLabel setHidden:YES];
+            } else {
+                [self.messageLabel setHidden:NO];
+            }
+            [self.progressView setHidden:YES];
+            [self.indicatorView stopAnimating];
+        }
+    });
 }
 
 - (void)processImageWithURL:(NSString *)url {
     //get properties
-    NSString *cacheKey = [self cacheKey];
+    NSString *cacheKey = url;
     UIImage *image = _originalImage;
     UIImage *placeholder = _placeholderImage;
     CGSize size = self.bounds.size;
@@ -329,7 +333,7 @@
 #endif
     
     //check cache
-    UIImage *processedImage = [self cachedProcessedImage];
+    UIImage *processedImage = [self cachedProcessImageForKey:cacheKey];
     if (!processedImage)
     {
         // set placeholder
@@ -386,19 +390,7 @@
     }
     
     //cache and set image
-    if ([[NSThread currentThread] isMainThread])
-    {
-        [self setProcessedImageOnMainThread:@[processedImage?:[NSNull null], cacheKey, url?:[NSNull null]]];
-    }
-    else
-    {
-        [self performSelectorOnMainThread:@selector(setProcessedImageOnMainThread:)
-                               withObject:[NSArray arrayWithObjects:
-                                           processedImage ?: [NSNull null],
-                                           cacheKey, url?:[NSNull null],nil
-                                           ]
-                            waitUntilDone:YES];
-    }
+    [self setProcessedImageOnMainThread:@[processedImage?:[NSNull null], cacheKey, url?:[NSNull null]]];
 }
 
 - (void)processImage {
@@ -448,9 +440,9 @@
 
 - (void)queueImageForProcessing
 {
-    UIImage *processedImage = [self cachedProcessedImage];
+    UIImage *processedImage = [self cachedProcessImageForKey:self.imageContentURL.absoluteString];
     if (processedImage) {
-        [self setProcessedImageOnMainThread:@[processedImage?:[NSNull null], [self cacheKey], self.imageContentURL.absoluteString]];
+        [self setProcessedImageOnMainThread:@[processedImage?:[NSNull null], self.imageContentURL.absoluteString, self.imageContentURL.absoluteString]];
         return;
     }
     
@@ -465,7 +457,7 @@
         __strong FXImageView *strongSelf = weakSelf;
         __strong AFImageRequestOperation *strongImageOperation = weakImageOperation;
         if ([strongImageOperation.request.URL isEqual: strongSelf.imageContentURL]) {
-            if (![strongSelf cachedProcessedImage]) {
+            if (![strongSelf cachedProcessImageForKey:strongImageOperation.request.URL.absoluteString]) {
                 [[NSOperationQueue mainQueue] addOperationWithBlock:^{
                     [strongSelf.messageLabel setText:nil];
                     [strongSelf.messageLabel setHidden:YES];
@@ -507,7 +499,7 @@
                 [strongSelf processImageWithURL:operation.request.URL.absoluteString];
             } else {
                 strongSelf.originalImage = nil;
-                [strongSelf setProcessedImageOnMainThread:@[[NSNull null], [strongSelf cacheKey], operation.request.URL.absoluteString]];
+                [strongSelf setProcessedImageOnMainThread:@[[NSNull null], operation.request.URL.absoluteString, operation.request.URL.absoluteString]];
             }
         });
         
@@ -515,7 +507,7 @@
         if ([operation.request.URL.absoluteString isEqualToString:self.imageContentURL.absoluteString]) {
             __strong FXImageView *strongSelf = weakSelf;
             dispatch_async(dispatch_get_main_queue(), ^{
-                
+                NSLog(@"Error downloading %@", operation.request.URL.absoluteString);
                 [strongSelf.messageLabel setText:NSLocalizedString(@"Error downloading image", nil)];
                 [strongSelf.messageLabel setHidden:NO];
                 [strongSelf setNeedsLayout];
@@ -523,7 +515,7 @@
             
             dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
                 strongSelf.originalImage = nil;
-                [strongSelf setProcessedImageOnMainThread:@[[NSNull null], [strongSelf cacheKey], operation.request.URL.absoluteString]];
+                [strongSelf setProcessedImageOnMainThread:@[[NSNull null], operation.request.URL.absoluteString, operation.request.URL.absoluteString]];
             });
         }
     }];
@@ -534,32 +526,6 @@
     }
     
     [self queueProcessingOperation:imageOperation];
-}
-
-- (void)updateProcessedImage
-{
-    id processedImage = [self cachedProcessedImage];
-    if (!processedImage && !_originalImage && !_imageContentURL)
-    {
-        processedImage = [NSNull null];
-    }
-    if (processedImage)
-    {
-        //use cached version
-        [self willChangeValueForKey:@"processedImage"];
-        _imageView.image = ([processedImage isKindOfClass:[NSNull class]])? nil: processedImage;
-        [self didChangeValueForKey:@"processedImage"];
-    }
-    else if (_asynchronous)
-    {
-        //process in background
-        [self queueImageForProcessing];
-    }
-    else
-    {
-        //process on main thread
-        [self processImage];
-    }
 }
 
 - (void)layoutSubviews
@@ -645,7 +611,6 @@
         //update processed image
         self.imageContentURL = nil;
         self.originalImage = image;
-        [self updateProcessedImage];
     }
 }
 
@@ -788,9 +753,10 @@
         [self willChangeValueForKey:@"image"];
         self.originalImage = nil;
         [self didChangeValueForKey:@"image"];
-        self.imageContentURL = URL;
+        _imageContentURL = URL;
+        self.cacheKey = self.imageContentURL.absoluteString;
         
-        [self updateProcessedImage];
+        [self queueImageForProcessing];
     }
 }
 

@@ -68,6 +68,11 @@
     return cell;
 }
 
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    NSLog(@"Selected: %@", [[self.images objectAtIndex:indexPath.row] absoluteString]);
+}
+
 - (void)getImageUrls
 {
     __weak MyViewController *weakViewController = self;
