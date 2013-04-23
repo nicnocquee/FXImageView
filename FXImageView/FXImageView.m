@@ -36,7 +36,6 @@
 
 #import "AFImageRequestOperation.h"
 
-
 @interface FXImageOperation : NSOperation
 
 @property (nonatomic, strong) FXImageView *target;
@@ -49,7 +48,6 @@
 @property (nonatomic, strong) UIImage *originalImage;
 @property (nonatomic, strong) UIImageView *imageView;
 @property (nonatomic, strong) NSURL *imageContentURL;
-@property (nonatomic, strong) AFImageRequestOperation *imageRequestOperation;
 
 - (void)processImage;
 
@@ -143,6 +141,13 @@
     [_indicatorView setHidden:YES];
     [self addSubview:_progressView];
     [self addSubview:_indicatorView];
+    
+    _messageLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    [_messageLabel setNumberOfLines:0];
+    [_messageLabel setBackgroundColor:[UIColor clearColor]];
+    [_messageLabel setFont:[UIFont boldSystemFontOfSize:17]];
+    [_messageLabel setTextColor:[UIColor darkGrayColor]];
+    [self addSubview:_messageLabel];
 }
 
 - (id)initWithFrame:(CGRect)frame
@@ -233,9 +238,8 @@
 {
     if (_cacheKey) return _cacheKey;
     
-    return [NSString stringWithFormat:@"%@_%@_%.2f_%.2f_%.2f_%@_%@_%.2f_%.2f_%i",
+    return [NSString stringWithFormat:@"%@_%.2f_%.2f_%.2f_%@_%@_%.2f_%.2f_%i",
             _imageContentURL ?: [self imageHash:_originalImage],
-            NSStringFromCGSize(self.bounds.size),
             _reflectionGap,
             _reflectionScale,
             _reflectionAlpha,
@@ -262,6 +266,8 @@
 - (void)setProcessedImageOnMainThread:(NSArray *)array
 {
     //get images
+    NSString *url = [array objectAtIndex:2];
+    url = ([url isKindOfClass:[NSNull class]])? nil:url;
     NSString *cacheKey = [array objectAtIndex:1];
     UIImage *processedImage = [array objectAtIndex:0];
     processedImage = ([processedImage isKindOfClass:[NSNull class]])? nil: processedImage;
@@ -273,25 +279,31 @@
     }
     
     //set image
-    if ([[self cacheKey] isEqualToString:cacheKey])
+    if ([[self cacheKey] isEqualToString:cacheKey] && [url isEqualToString:self.imageContentURL.absoluteString])
     {
+        
         //implement crossfade transition without needing to import QuartzCore
         id animation = objc_msgSend(NSClassFromString(@"CATransition"), @selector(animation));
         objc_msgSend(animation, @selector(setType:), @"kCATransitionFade");
         objc_msgSend(self.layer, @selector(addAnimation:forKey:), animation, nil);
-        
+
         //set processed image
         [self willChangeValueForKey:@"processedImage"];
         _imageView.image = processedImage;
         [self didChangeValueForKey:@"processedImage"];
+        
+        if (processedImage) {
+            [self.messageLabel setHidden:YES];
+        }
+        [self.progressView setHidden:YES];
+        [self.indicatorView stopAnimating];
     }
     
-    [self.progressView setHidden:YES];
-    [self.indicatorView stopAnimating];
+    
+    
 }
 
-- (void)processImage
-{
+- (void)processImageWithURL:(NSString *)url {
     //get properties
     NSString *cacheKey = [self cacheKey];
     UIImage *image = _originalImage;
@@ -308,7 +320,7 @@
     UIViewContentMode contentMode = self.contentMode;
     
 #if !__has_feature(objc_arc)
-
+    
     [[image retain] autorelease];
     [[imageURL retain] autorelease];
     [[shadowColor retain] autorelease];
@@ -376,33 +388,39 @@
     //cache and set image
     if ([[NSThread currentThread] isMainThread])
     {
-        [self setProcessedImageOnMainThread:@[processedImage?:[NSNull null], cacheKey]];
+        [self setProcessedImageOnMainThread:@[processedImage?:[NSNull null], cacheKey, url?:[NSNull null]]];
     }
     else
     {
         [self performSelectorOnMainThread:@selector(setProcessedImageOnMainThread:)
                                withObject:[NSArray arrayWithObjects:
                                            processedImage ?: [NSNull null],
-                                           cacheKey,
-                                           nil]
+                                           cacheKey, url?:[NSNull null],nil
+                                           ]
                             waitUntilDone:YES];
     }
 }
 
-- (void)queueProcessingOperation:(FXImageOperation *)operation
+- (void)processImage {
+    [self processImageWithURL:nil];
+}
+
+- (void)queueProcessingOperation:(AFImageRequestOperation *)operation
 {
     //suspend operation queue
     NSOperationQueue *queue = [[self class] processingQueue];
     [queue setSuspended:YES];
     
     //check for existing operations
-    for (FXImageOperation *op in queue.operations)
+    for (AFImageRequestOperation *op in queue.operations)
     {
-        if ([op isKindOfClass:[FXImageOperation class]])
+        if ([op isKindOfClass:[AFImageRequestOperation class]])
         {
-            if (op.target == self && ![op isExecuting])
+            if ([op.request isEqual:operation.request])
             {
                 //already queued
+                [operation cancel];
+                operation = nil;
                 [queue setSuspended:NO];
                 return;
             }
@@ -432,42 +450,82 @@
 {
     UIImage *processedImage = [self cachedProcessedImage];
     if (processedImage) {
-        [self setProcessedImageOnMainThread:@[processedImage?:[NSNull null], [self cacheKey]]];
+        [self setProcessedImageOnMainThread:@[processedImage?:[NSNull null], [self cacheKey], self.imageContentURL.absoluteString]];
         return;
     }
-    [self cancelImageRequestOperation];
+    
     __weak FXImageView *weakSelf = self;
+    
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self.imageContentURL];
     [request addValue:@"image/*" forHTTPHeaderField:@"Accept"];
     AFImageRequestOperation *imageOperation = [[AFImageRequestOperation alloc] initWithRequest:request];
+    __weak AFImageRequestOperation *weakImageOperation = imageOperation;
+    
     [imageOperation setDownloadProgressBlock:^(NSUInteger bytesRead, long long totalBytesRead, long long totalBytesExpectedToRead) {
         __strong FXImageView *strongSelf = weakSelf;
-        if (strongSelf.imageContentURL == request.URL) {
-            [strongSelf.progressView setHidden:NO];
-            [strongSelf.progressView setProgress:totalBytesRead/totalBytesExpectedToRead animated:NO];
-            if (totalBytesRead == totalBytesExpectedToRead) {
-                [strongSelf.progressView setHidden:YES];
+        __strong AFImageRequestOperation *strongImageOperation = weakImageOperation;
+        if ([strongImageOperation.request.URL isEqual: strongSelf.imageContentURL]) {
+            if (![strongSelf cachedProcessedImage]) {
+                [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+                    [strongSelf.messageLabel setText:nil];
+                    [strongSelf.messageLabel setHidden:YES];
+                    [strongSelf.progressView setHidden:NO];
+                    [strongSelf setNeedsLayout];
+                    
+                    [strongSelf.progressView setProgress:(float)totalBytesRead/(float)totalBytesExpectedToRead animated:NO];
+                    if (totalBytesRead == totalBytesExpectedToRead) {
+                        [strongSelf.progressView setHidden:YES];
+                    }
+                }];
+            } else {
+                [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+                    [strongSelf.messageLabel setText:nil];
+                    [strongSelf.messageLabel setHidden:YES];
+                    [strongSelf.progressView setHidden:YES];
+                    [strongSelf setNeedsLayout];
+                }];
             }
-        } else {
-            [strongSelf.progressView setHidden:YES];
         }
     }];
+    
     [imageOperation setCompletionBlockWithSuccess:^(AFHTTPRequestOperation *operation, id responseObject) {
-        if (!responseObject) {
-            NSLog(@"No image");
-        }
         __strong FXImageView *strongSelf = weakSelf;
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            strongSelf.originalImage = responseObject;
-            [strongSelf processImage];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (!responseObject) {
+                [strongSelf.messageLabel setText:NSLocalizedString(@"No image", nil)];
+                [strongSelf.messageLabel setHidden:NO];
+                [strongSelf setNeedsLayout];
+            } else {
+                [strongSelf.messageLabel setText:nil];
+                [strongSelf.messageLabel setHidden:YES];
+            }
         });
+
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            if (responseObject) {
+                strongSelf.originalImage = responseObject;
+                [strongSelf processImageWithURL:operation.request.URL.absoluteString];
+            } else {
+                strongSelf.originalImage = nil;
+                [strongSelf setProcessedImageOnMainThread:@[[NSNull null], [strongSelf cacheKey], operation.request.URL.absoluteString]];
+            }
+        });
+        
     } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
-        NSLog(@"Failure: No image");
-        __strong FXImageView *strongSelf = weakSelf;
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            strongSelf.originalImage = nil;
-            [strongSelf processImage];
-        });
+        if ([operation.request.URL.absoluteString isEqualToString:self.imageContentURL.absoluteString]) {
+            __strong FXImageView *strongSelf = weakSelf;
+            dispatch_async(dispatch_get_main_queue(), ^{
+                
+                [strongSelf.messageLabel setText:NSLocalizedString(@"Error downloading image", nil)];
+                [strongSelf.messageLabel setHidden:NO];
+                [strongSelf setNeedsLayout];
+            });
+            
+            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                strongSelf.originalImage = nil;
+                [strongSelf setProcessedImageOnMainThread:@[[NSNull null], [strongSelf cacheKey], operation.request.URL.absoluteString]];
+            });
+        }
     }];
     
     if (!self.shouldHideIndicatorView) {
@@ -475,13 +533,7 @@
         [self.indicatorView setHidden:NO];
     }
     
-    self.imageRequestOperation = imageOperation;
-    [[[self class] processingQueue] addOperation:imageOperation];
-}
-
-- (void)cancelImageRequestOperation {
-    [self.imageRequestOperation cancel];
-    self.imageRequestOperation = nil;
+    [self queueProcessingOperation:imageOperation];
 }
 
 - (void)updateProcessedImage
@@ -533,10 +585,18 @@
         }
     }
     
+    if (!self.messageLabel.hidden) {
+        CGRect frame = self.messageLabel.frame;
+        frame.size.width = 0.8 * CGRectGetWidth(self.imageView.frame);
+        self.messageLabel.frame = frame;
+        [self.messageLabel sizeToFit];
+        [self.messageLabel setCenter:CGPointMake(CGRectGetWidth(self.frame)/2, CGRectGetHeight(self.frame)/2)];
+    }
 }
 
 - (void)showPlaceholderImage {
-    self.imageView.image = self.placeholderImage;
+    _imageView.image = self.placeholderImage;
+    [self setNeedsLayout];
 }
 
 
@@ -712,15 +772,24 @@
 }
 
 - (void)setImageWithContentsOfURL:(NSURL *)URL placeholderImage:(UIImage *)placeholderImage {
+    [self.messageLabel setText:nil];
+    [self.messageLabel setHidden:YES];
+    [self.progressView setHidden:YES];
+    [self.indicatorView setHidden:YES];
+    [self setNeedsLayout];
+    [self layoutIfNeeded];
+    
     if (![URL isEqual:_imageContentURL])
-    {
+    {        
         //update processed image
         self.placeholderImage = placeholderImage;
         [self showPlaceholderImage];
+        
         [self willChangeValueForKey:@"image"];
         self.originalImage = nil;
         [self didChangeValueForKey:@"image"];
         self.imageContentURL = URL;
+        
         [self updateProcessedImage];
     }
 }
