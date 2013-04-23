@@ -148,8 +148,6 @@
     [_messageLabel setFont:[UIFont boldSystemFontOfSize:17]];
     [_messageLabel setTextColor:[UIColor darkGrayColor]];
     [self addSubview:_messageLabel];
-    
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(downloadDidStart:) name:AFNetworkingOperationDidStartNotification object:nil];
 }
 
 - (id)initWithFrame:(CGRect)frame
@@ -438,6 +436,11 @@
         return;
     }
     [self showPlaceholderImage];
+    if (!self.shouldHideIndicatorView) {
+        [self.indicatorView startAnimating];
+        [self.indicatorView setHidden:NO];
+    }
+    
     __weak FXImageView *weakSelf = self;
     
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self.imageContentURL];
@@ -450,7 +453,19 @@
         __strong AFImageRequestOperation *strongImageOperation = weakImageOperation;
         if ([strongImageOperation.request.URL isEqual: strongSelf.imageContentURL]) {
             if (![strongSelf cachedProcessImageForKey:strongImageOperation.request.URL.absoluteString]) {
-                [[NSOperationQueue mainQueue] addOperationWithBlock:^{                    
+                [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+                    if ((float)totalBytesRead/(float)totalBytesExpectedToRead  < 1) {
+                        [strongSelf.messageLabel setText:nil];
+                        [strongSelf.messageLabel setHidden:YES];
+                        
+                        if (!self.shouldHideIndicatorView) {
+                            [self.indicatorView startAnimating];
+                            [self.indicatorView setHidden:NO];
+                        }
+                    }
+                    [strongSelf.progressView setHidden:NO];
+                    [strongSelf setNeedsLayout];
+
                     [strongSelf.progressView setProgress:(float)totalBytesRead/(float)totalBytesExpectedToRead animated:NO];
                     if (totalBytesRead == totalBytesExpectedToRead) {
                         [strongSelf.progressView setHidden:YES];
@@ -486,11 +501,6 @@
             });
         }
     }];
-    
-    if (!self.shouldHideIndicatorView) {
-        [self.indicatorView startAnimating];
-        [self.indicatorView setHidden:NO];
-    }
     
     [self queueProcessingOperation:imageOperation];
 }
@@ -708,7 +718,7 @@
         [self.messageLabel setText:nil];
         [self.messageLabel setHidden:YES];
         [self.progressView setHidden:YES];
-        [self.indicatorView setHidden:YES];
+        [self.indicatorView stopAnimating];
         [self setNeedsLayout];
         
         //update processed image
@@ -722,19 +732,6 @@
         self.placeholderImage = placeholderImage;
         
         [self queueImageForProcessing];
-    }
-}
-
-#pragma mark - Notification 
-
-- (void)downloadDidStart:(NSNotification *)notification {
-    AFImageRequestOperation *imageOperation = (AFImageRequestOperation *)notification.object;
-    if ([imageOperation.request.URL.absoluteString isEqualToString:self.imageContentURL.absoluteString]) {
-        [self.messageLabel setText:nil];
-        [self.messageLabel setHidden:YES];
-        [self.progressView setHidden:NO];
-        [self.progressView setProgress:0];
-        [self setNeedsLayout];
     }
 }
 
