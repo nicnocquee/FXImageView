@@ -58,6 +58,10 @@
 @property (nonatomic, copy) UIImage *(^customEffectsBlock)(UIImage *image);
 @property (nonatomic, copy) NSString *cacheKey;
 
+@property (copy,nonatomic) NSString *cacheDirectoryName;
+@property (copy,nonatomic) NSString *cacheDirectoryPath;
+
+
 - (void)setImageWithContentsOfFile:(NSString *)file;
 - (void)setImageWithContentsOfURL:(NSURL *)URL;
 
