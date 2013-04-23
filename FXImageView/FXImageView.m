@@ -36,9 +36,48 @@
 
 #import "AFImageRequestOperation.h"
 
-@interface FXImageOperation : NSOperation
+@interface NSOperationQueueObserver : NSObject
 
-@property (nonatomic, strong) FXImageView *target;
++ (NSOperationQueueObserver *)sharedQueueObserver;
+- (void)observe;
+
+@property (nonatomic, getter = isObserving) BOOL observing;
+
+@end
+
+@implementation NSOperationQueueObserver
+
++ (NSOperationQueueObserver *)sharedQueueObserver {
+    static NSOperationQueueObserver *shareObserver = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        shareObserver = [[NSOperationQueueObserver alloc] init];
+    });
+    return shareObserver;
+}
+
+- (void)observe {
+    if (!self.isObserving) {
+        NSOperationQueue *sharedQueue = [FXImageView processingQueue];
+        [sharedQueue addObserver:self forKeyPath:@"operationCount" options:NSKeyValueObservingOptionNew context:NULL];
+        self.observing = YES;
+    }
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
+    if ([keyPath isEqualToString:@"operationCount"]) {
+        int operations = [[change objectForKey:@"new"] intValue];
+        if (operations == 0) {
+            [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
+        } else {
+            [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
+        }
+    }
+}
+
+- (void)dealloc {
+    [[FXImageView processingQueue] removeObserver:self forKeyPath:@"operationCount"];
+}
 
 @end
 
@@ -52,32 +91,6 @@
 - (void)processImage;
 
 @end
-
-
-@implementation FXImageOperation
-
-@synthesize target = _target;
-
-- (void)main
-{
-    @autoreleasepool
-    {
-        [_target processImage];
-    }
-}
-
-#if !__has_feature(objc_arc)
-
-- (void)dealloc
-{
-    [_target release];
-    [super dealloc];
-}
-
-#endif
-
-@end
-
 
 @implementation FXImageView
 
@@ -149,6 +162,8 @@
     [_messageLabel setTextColor:[UIColor darkGrayColor]];
     [_messageLabel setTextAlignment:NSTextAlignmentCenter];
     [self addSubview:_messageLabel];
+    
+    [[NSOperationQueueObserver sharedQueueObserver] observe];
 }
 
 - (id)initWithFrame:(CGRect)frame
