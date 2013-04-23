@@ -147,6 +147,7 @@
     [_messageLabel setBackgroundColor:[UIColor clearColor]];
     [_messageLabel setFont:[UIFont boldSystemFontOfSize:17]];
     [_messageLabel setTextColor:[UIColor darkGrayColor]];
+    [_messageLabel setTextAlignment:NSTextAlignmentCenter];
     [self addSubview:_messageLabel];
 }
 
@@ -435,11 +436,14 @@
         _imageView.image = processedImage;
         return;
     }
+    
     [self showPlaceholderImage];
     if (!self.shouldHideIndicatorView) {
         [self.indicatorView startAnimating];
         [self.indicatorView setHidden:NO];
     }
+    [self.progressView setProgress:0];
+    [self.progressView setHidden:NO];
     
     __weak FXImageView *weakSelf = self;
     
