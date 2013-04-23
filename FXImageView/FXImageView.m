@@ -300,6 +300,8 @@
                 [self.messageLabel setHidden:YES];
             } else {
                 [self.messageLabel setHidden:NO];
+                [self setNeedsLayout];
+                [self layoutIfNeeded];
             }
             [self.progressView setHidden:YES];
             [self.indicatorView stopAnimating];
@@ -411,8 +413,6 @@
             if ([op.request isEqual:operation.request])
             {
                 //already queued
-                [operation cancel];
-                operation = nil;
                 [queue setSuspended:NO];
                 return;
             }
@@ -459,22 +459,17 @@
         if ([strongImageOperation.request.URL isEqual: strongSelf.imageContentURL]) {
             if (![strongSelf cachedProcessImageForKey:strongImageOperation.request.URL.absoluteString]) {
                 [[NSOperationQueue mainQueue] addOperationWithBlock:^{
-                    [strongSelf.messageLabel setText:nil];
-                    [strongSelf.messageLabel setHidden:YES];
-                    [strongSelf.progressView setHidden:NO];
-                    [strongSelf setNeedsLayout];
+                    if ((float)totalBytesRead/(float)totalBytesExpectedToRead  < 1) {
+                        [strongSelf.messageLabel setText:nil];
+                        [strongSelf.messageLabel setHidden:YES];
+                        [strongSelf.progressView setHidden:NO];
+                        [strongSelf setNeedsLayout];
+                    }
                     
                     [strongSelf.progressView setProgress:(float)totalBytesRead/(float)totalBytesExpectedToRead animated:NO];
                     if (totalBytesRead == totalBytesExpectedToRead) {
                         [strongSelf.progressView setHidden:YES];
                     }
-                }];
-            } else {
-                [[NSOperationQueue mainQueue] addOperationWithBlock:^{
-                    [strongSelf.messageLabel setText:nil];
-                    [strongSelf.messageLabel setHidden:YES];
-                    [strongSelf.progressView setHidden:YES];
-                    [strongSelf setNeedsLayout];
                 }];
             }
         }
@@ -482,17 +477,6 @@
     
     [imageOperation setCompletionBlockWithSuccess:^(AFHTTPRequestOperation *operation, id responseObject) {
         __strong FXImageView *strongSelf = weakSelf;
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (!responseObject) {
-                [strongSelf.messageLabel setText:NSLocalizedString(@"No image", nil)];
-                [strongSelf.messageLabel setHidden:NO];
-                [strongSelf setNeedsLayout];
-            } else {
-                [strongSelf.messageLabel setText:nil];
-                [strongSelf.messageLabel setHidden:YES];
-            }
-        });
-
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
             if (responseObject) {
                 strongSelf.originalImage = responseObject;
@@ -510,7 +494,6 @@
                 NSLog(@"Error downloading %@", operation.request.URL.absoluteString);
                 [strongSelf.messageLabel setText:NSLocalizedString(@"Error downloading image", nil)];
                 [strongSelf.messageLabel setHidden:NO];
-                [strongSelf setNeedsLayout];
             });
             
             dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
@@ -736,16 +719,15 @@
     [self setImageWithContentsOfURL:URL placeholderImage:nil];
 }
 
-- (void)setImageWithContentsOfURL:(NSURL *)URL placeholderImage:(UIImage *)placeholderImage {
-    [self.messageLabel setText:nil];
-    [self.messageLabel setHidden:YES];
-    [self.progressView setHidden:YES];
-    [self.indicatorView setHidden:YES];
-    [self setNeedsLayout];
-    [self layoutIfNeeded];
-    
+- (void)setImageWithContentsOfURL:(NSURL *)URL placeholderImage:(UIImage *)placeholderImage {    
     if (![URL isEqual:_imageContentURL])
-    {        
+    {
+        [self.messageLabel setText:nil];
+        [self.messageLabel setHidden:YES];
+        [self.progressView setHidden:YES];
+        [self.indicatorView setHidden:YES];
+        [self setNeedsLayout];
+        
         //update processed image
         self.placeholderImage = placeholderImage;
         [self showPlaceholderImage];
