@@ -472,7 +472,6 @@
         __strong AFImageRequestOperation *strongImageOperation = weakImageOperation;
         if ([strongImageOperation.request.URL isEqual: strongSelf.imageContentURL]) {
             if (![strongSelf cachedProcessImageForKey:strongImageOperation.request.URL.absoluteString]) {
-                [[NSOperationQueue mainQueue] addOperationWithBlock:^{
                     if ((float)totalBytesRead/(float)totalBytesExpectedToRead  < 1) {
                         [strongSelf.messageLabel setText:nil];
                         [strongSelf.messageLabel setHidden:YES];
@@ -489,7 +488,6 @@
                     if (totalBytesRead == totalBytesExpectedToRead) {
                         [strongSelf.progressView setHidden:YES];
                     }
-                }];
             }
         }
     }];
