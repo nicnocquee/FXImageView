@@ -148,6 +148,8 @@
     [_messageLabel setFont:[UIFont boldSystemFontOfSize:17]];
     [_messageLabel setTextColor:[UIColor darkGrayColor]];
     [self addSubview:_messageLabel];
+    
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(downloadDidStart:) name:AFNetworkingOperationDidStartNotification object:nil];
 }
 
 - (id)initWithFrame:(CGRect)frame
@@ -303,7 +305,6 @@
                 [self.messageLabel setHidden:NO];
                 [self setNeedsLayout];
                 [self layoutIfNeeded];
-                NSLog(@"Setting nil image for %@", url);
             }
             [self.progressView setHidden:YES];
             [self.indicatorView stopAnimating];
@@ -417,6 +418,7 @@
         NSOperation *op = [[queue operations] objectAtIndex:index];
         if (![op isExecuting])
         {
+            [operation removeDependency:op];
             [op addDependency:operation];
         }
     }
@@ -448,14 +450,7 @@
         __strong AFImageRequestOperation *strongImageOperation = weakImageOperation;
         if ([strongImageOperation.request.URL isEqual: strongSelf.imageContentURL]) {
             if (![strongSelf cachedProcessImageForKey:strongImageOperation.request.URL.absoluteString]) {
-                [[NSOperationQueue mainQueue] addOperationWithBlock:^{
-                    if ((float)totalBytesRead/(float)totalBytesExpectedToRead  < 1) {
-                        [strongSelf.messageLabel setText:nil];
-                        [strongSelf.messageLabel setHidden:YES];
-                    }
-                    [strongSelf.progressView setHidden:NO];
-                    [strongSelf setNeedsLayout];
-                    
+                [[NSOperationQueue mainQueue] addOperationWithBlock:^{                    
                     [strongSelf.progressView setProgress:(float)totalBytesRead/(float)totalBytesExpectedToRead animated:NO];
                     if (totalBytesRead == totalBytesExpectedToRead) {
                         [strongSelf.progressView setHidden:YES];
@@ -481,7 +476,6 @@
         if ([operation.request.URL.absoluteString isEqualToString:self.imageContentURL.absoluteString]) {
             __strong FXImageView *strongSelf = weakSelf;
             dispatch_async(dispatch_get_main_queue(), ^{
-                NSLog(@"Error downloading %@", operation.request.URL.absoluteString);
                 [strongSelf.messageLabel setText:NSLocalizedString(@"Error downloading image", nil)];
                 [strongSelf.messageLabel setHidden:NO];
             });
@@ -728,6 +722,19 @@
         self.placeholderImage = placeholderImage;
         
         [self queueImageForProcessing];
+    }
+}
+
+#pragma mark - Notification 
+
+- (void)downloadDidStart:(NSNotification *)notification {
+    AFImageRequestOperation *imageOperation = (AFImageRequestOperation *)notification.object;
+    if ([imageOperation.request.URL.absoluteString isEqualToString:self.imageContentURL.absoluteString]) {
+        [self.messageLabel setText:nil];
+        [self.messageLabel setHidden:YES];
+        [self.progressView setHidden:NO];
+        [self.progressView setProgress:0];
+        [self setNeedsLayout];
     }
 }
 

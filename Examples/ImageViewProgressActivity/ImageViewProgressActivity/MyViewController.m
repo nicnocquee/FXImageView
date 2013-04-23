@@ -10,6 +10,9 @@
 
 #import "ImageViewCell.h"
 
+#import "FXImageView.h"
+#import "AFImageRequestOperation.h"
+
 #define MAX_IMAGES 100
 
 @interface MyViewController ()
@@ -70,7 +73,6 @@
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    NSLog(@"Selected: %@", [[self.images objectAtIndex:indexPath.row] absoluteString]);
 }
 
 - (void)getImageUrls
@@ -103,5 +105,6 @@
         });
     });
 }
+
 
 @end

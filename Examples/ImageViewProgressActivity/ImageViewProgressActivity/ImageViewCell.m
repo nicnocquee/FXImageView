@@ -24,7 +24,7 @@
         _fxImageView = [[FXImageView alloc] initWithFrame:CGRectInset(self.contentView.bounds, 10, 10)];
         [_fxImageView setAutoresizingMask:UIViewAutoresizingFlexibleHeight|UIViewAutoresizingFlexibleWidth];
         [_fxImageView setAsynchronous:YES];
-        [_fxImageView setShouldHideIndicatorView:YES];
+        [_fxImageView setShouldHideIndicatorView:NO];
         [_fxImageView setBackgroundColor:[UIColor whiteColor]];
         [self.contentView addSubview:_fxImageView];
     }
