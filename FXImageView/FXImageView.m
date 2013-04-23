@@ -287,6 +287,7 @@
         if ([[self cacheKey] isEqualToString:cacheKey] && [url isEqualToString:self.imageContentURL.absoluteString])
         {
             //implement crossfade transition without needing to import QuartzCore
+            
             id animation = objc_msgSend(NSClassFromString(@"CATransition"), @selector(animation));
             objc_msgSend(animation, @selector(setType:), @"kCATransitionFade");
             objc_msgSend(self.layer, @selector(addAnimation:forKey:), animation, nil);
@@ -302,6 +303,7 @@
                 [self.messageLabel setHidden:NO];
                 [self setNeedsLayout];
                 [self layoutIfNeeded];
+                NSLog(@"Setting nil image for %@", url);
             }
             [self.progressView setHidden:YES];
             [self.indicatorView stopAnimating];
@@ -338,18 +340,6 @@
     UIImage *processedImage = [self cachedProcessImageForKey:cacheKey];
     if (!processedImage)
     {
-        // set placeholder
-        if ([[NSThread currentThread] isMainThread])
-        {
-            [self showPlaceholderImage];
-        }
-        else
-        {
-            [self performSelectorOnMainThread:@selector(showPlaceholderImage)
-                                   withObject:nil
-                                waitUntilDone:YES];
-        }
-        
         if (image)
         {
             //crop and scale image
@@ -442,10 +432,10 @@
 {
     UIImage *processedImage = [self cachedProcessImageForKey:self.imageContentURL.absoluteString];
     if (processedImage) {
-        [self setProcessedImageOnMainThread:@[processedImage?:[NSNull null], self.imageContentURL.absoluteString, self.imageContentURL.absoluteString]];
+        _imageView.image = processedImage;
         return;
     }
-    
+    [self showPlaceholderImage];
     __weak FXImageView *weakSelf = self;
     
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self.imageContentURL];
@@ -462,9 +452,9 @@
                     if ((float)totalBytesRead/(float)totalBytesExpectedToRead  < 1) {
                         [strongSelf.messageLabel setText:nil];
                         [strongSelf.messageLabel setHidden:YES];
-                        [strongSelf.progressView setHidden:NO];
-                        [strongSelf setNeedsLayout];
                     }
+                    [strongSelf.progressView setHidden:NO];
+                    [strongSelf setNeedsLayout];
                     
                     [strongSelf.progressView setProgress:(float)totalBytesRead/(float)totalBytesExpectedToRead animated:NO];
                     if (totalBytesRead == totalBytesExpectedToRead) {
@@ -545,7 +535,6 @@
 
 - (void)showPlaceholderImage {
     _imageView.image = self.placeholderImage;
-    [self setNeedsLayout];
 }
 
 
@@ -729,14 +718,14 @@
         [self setNeedsLayout];
         
         //update processed image
-        self.placeholderImage = placeholderImage;
-        [self showPlaceholderImage];
         
         [self willChangeValueForKey:@"image"];
         self.originalImage = nil;
         [self didChangeValueForKey:@"image"];
         _imageContentURL = URL;
         self.cacheKey = self.imageContentURL.absoluteString;
+        
+        self.placeholderImage = placeholderImage;
         
         [self queueImageForProcessing];
     }
